@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adaptive Network Routing & Failure Recovery Simulator</title>
+  <meta name="description" content="Interactive browser-based simulator and terminal emulator for Adaptive Network Routing, failure recovery, and graph pathfinding algorithms (BFS, DFS, Dijkstra, Adaptive Strategy).">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-cyber">
+  <!-- Glowing Background Ambience -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+  <div class="grid-pattern-overlay"></div>
+
+  <!-- Main Application Wrapper -->
+  <div class="app-container">
+
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-icon-box">
+          <i data-lucide="network" class="brand-icon"></i>
+          <span class="pulse-indicator"></span>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">ADAPTIVE NETWORK ROUTING</h1>
+          <span class="brand-subtitle">Failure Recovery & Dynamic Path Simulator (C++ Engine Frontend)</span>
+        </div>
+      </div>
+
+      <!-- Live Network Status Telemetry Pills -->
+      <div class="header-telemetry">
+        <div class="telemetry-pill" id="status-pill" title="Network Graph Connectivity Status">
+          <span class="status-dot online" id="conn-dot"></span>
+          <span class="telemetry-label">Status:</span>
+          <span class="telemetry-val" id="conn-text">CONNECTED</span>
+        </div>
+        <div class="telemetry-pill" title="Active Routers">
+          <i data-lucide="server" class="pill-icon"></i>
+          <span class="telemetry-label">Routers:</span>
+          <span class="telemetry-val" id="active-routers-count">8/8 Active</span>
+        </div>
+        <div class="telemetry-pill" title="Active Links">
+          <i data-lucide="activity" class="pill-icon"></i>
+          <span class="telemetry-label">Links:</span>
+          <span class="telemetry-val" id="active-links-count">12/12 Active</span>
+        </div>
+        <div class="telemetry-pill" title="Packet Delivery Rate">
+          <i data-lucide="shield-check" class="pill-icon"></i>
+          <span class="telemetry-label">Delivery:</span>
+          <span class="telemetry-val highlight-rate" id="delivery-rate-val">100%</span>
+        </div>
+      </div>
+
+      <!-- Top Actions -->
+      <div class="header-actions">
+        <button id="btn-sound-toggle" class="icon-action-btn" title="Toggle Simulation Audio Effects">
+          <i data-lucide="volume-2" id="sound-icon"></i>
+        </button>
+        <button id="btn-reset-network" class="action-btn-outline" title="Reset Network to Default Topology">
+          <i data-lucide="rotate-ccw"></i>
+          <span>Reset Network</span>
+        </button>
+        <button id="btn-quick-packet" class="action-btn-primary" title="Send a Quick Packet">
+          <i data-lucide="send"></i>
+          <span>Send Packet</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs-bar">
+      <button class="nav-tab active" data-tab="tab-simulator">
+        <i data-lucide="cpu"></i>
+        <span>Live Simulator & Terminal</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-algorithms">
+        <i data-lucide="git-merge"></i>
+        <span>Routing Algorithm Comparison</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-history">
+        <i data-lucide="clock"></i>
+        <span>Packet History & Queues (<span id="history-badge">0</span>)</span>
+      </button>
+      <button class="nav-tab" data-tab="tab-report">
+        <i data-lucide="file-text"></i>
+        <span>Project Architecture & Report</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: Live Simulator & Terminal View -->
+    <main class="tab-content active" id="tab-simulator">
+      <div class="simulator-layout">
+        
+        <!-- Left Panel: Interactive Network Graph & Canvas -->
+        <section class="network-visualizer-panel card-surface">
+          <div class="panel-header">
+            <div class="panel-header-title">
+              <i data-lucide="share-2"></i>
+              <h2>Interactive Network Topology Visualizer</h2>
+              <span class="badge-tag">Drag Nodes &bull; Click to Fail/Repair</span>
+            </div>
+            
+            <div class="visualizer-controls">
+              <button id="btn-fit-view" class="tool-btn" title="Center Topology">
+                <i data-lucide="maximize-2"></i>
+              </button>
+              <button id="btn-pause-anim" class="tool-btn" title="Animation Toggle">
+                <i data-lucide="play" id="play-pause-icon"></i>
+              </button>
+              <div class="route-legend">
+                <span class="legend-item"><span class="legend-color active-node"></span> Active Router</span>
+                <span class="legend-item"><span class="legend-color failed-node"></span> Failed Router</span>
+                <span class="legend-item"><span class="legend-color active-link"></span> Active Link</span>
+                <span class="legend-item"><span class="legend-color failed-link"></span> Failed Link</span>
+                <span class="legend-item"><span class="legend-color active-path"></span> Active Route</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network Canvas / SVG Area -->
+          <div class="graph-canvas-wrapper" id="graph-wrapper">
+            <!-- SVG overlay for high-definition links, costs, and failure indicators -->
+            <svg id="network-svg" class="network-svg-layer">
+              <defs>
+                <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                <filter id="crimson-glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                <linearGradient id="gold-path-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#38bdf8" />
+                  <stop offset="50%" stop-color="#00f2fe" />
+                  <stop offset="100%" stop-color="#4facfe" />
+                </linearGradient>
+                <linearGradient id="active-link-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#0284c7" />
+                  <stop offset="100%" stop-color="#38bdf8" />
+                </linearGradient>
+              </defs>
+              <g id="svg-links-group"></g>
+              <g id="svg-routes-group"></g>
+              <g id="svg-labels-group"></g>
+            </svg>
+
+            <!-- HTML Overlay for Draggable, Rich Interactive Router Nodes -->
+            <div id="nodes-container" class="nodes-container-layer"></div>
+
+            <!-- Packet Animation Particle Layer -->
+            <div id="packet-animation-layer" class="packet-animation-layer"></div>
+
+            <!-- Toast / Notification Overlay -->
+            <div id="graph-banner-alert" class="graph-banner-alert hidden">
+              <i data-lucide="alert-triangle" class="alert-icon"></i>
+              <span id="graph-banner-text">Destination is unreachable</span>
+            </div>
+          </div>
+
+          <!-- Visualizer Bottom Status Bar -->
+          <div class="visualizer-status-bar">
+            <div class="status-meta">
+              <span class="meta-label">Selected Route:</span>
+              <span class="meta-value" id="current-route-display">None (Ready for transmission)</span>
+            </div>
+            <div class="status-meta">
+              <span class="meta-label">Total Path Cost:</span>
+              <span class="meta-value highlight-num" id="current-cost-display">0</span>
+            </div>
+            <div class="status-meta">
+              <span class="meta-label">Hop Count:</span>
+              <span class="meta-value highlight-num" id="current-hops-display">0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Panel: Terminal Output Simulator & Menu Driven Controls -->
+        <section class="terminal-panel card-surface">
+          <div class="terminal-window-header">
+            <div class="window-decorations">
+              <span class="win-circle close"></span>
+              <span class="win-circle min"></span>
+              <span class="win-circle max"></span>
+              <span class="win-title">
+                <i data-lucide="terminal"></i>
+                Adaptive_Network_Routing_Simulator.exe (C++ Standard I/O)
+              </span>
+            </div>
+            <div class="terminal-actions">
+              <button id="btn-copy-terminal" class="terminal-btn" title="Copy Terminal Logs">
+                <i data-lucide="copy"></i> Copy
+              </button>
+              <button id="btn-clear-terminal" class="terminal-btn" title="Clear Screen">
+                <i data-lucide="trash-2"></i> Clear
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Menu Buttons (Exact Options 1-11 & 0) -->
+          <div class="menu-button-deck">
+            <div class="menu-deck-heading">
+              <span>TERMINAL DRIVEN MENU (SELECT CHOICE OR TYPE IN CONSOLE)</span>
+            </div>
+            <div class="menu-button-grid">
+              <button class="menu-btn" data-choice="1" title="Option 1: Display all routers and links">
+                <span class="menu-num">1</span>
+                <span class="menu-name">Display Network</span>
+              </button>
+              <button class="menu-btn btn-highlight" data-choice="2" title="Option 2: Send packet using Adaptive routing">
+                <span class="menu-num">2</span>
+                <span class="menu-name">Send Packet</span>
+              </button>
+              <button class="menu-btn" data-choice="3" title="Option 3: Compare BFS, Dijkstra, and Adaptive strategies">
+                <span class="menu-num">3</span>
+                <span class="menu-name">Compare Algorithms</span>
+              </button>
+              <button class="menu-btn btn-danger" data-choice="4" title="Option 4: Simulate a link disconnection">
+                <span class="menu-num">4</span>
+                <span class="menu-name">Fail Link</span>
+              </button>
+              <button class="menu-btn btn-success" data-choice="5" title="Option 5: Repair a failed link">
+                <span class="menu-num">5</span>
+                <span class="menu-name">Repair Link</span>
+              </button>
+              <button class="menu-btn btn-danger" data-choice="6" title="Option 6: Simulate a router crash">
+                <span class="menu-num">6</span>
+                <span class="menu-name">Fail Router</span>
+              </button>
+              <button class="menu-btn btn-success" data-choice="7" title="Option 7: Bring a router back online">
+                <span class="menu-num">7</span>
+                <span class="menu-name">Repair Router</span>
+              </button>
+              <button class="menu-btn" data-choice="8" title="Option 8: Test end-to-end connectivity via BFS">
+                <span class="menu-num">8</span>
+                <span class="menu-name">Check Connectivity</span>
+              </button>
+              <button class="menu-btn" data-choice="9" title="Option 9: View packet delivery and loss metrics">
+                <span class="menu-num">9</span>
+                <span class="menu-name">Show Statistics</span>
+              </button>
+              <button class="menu-btn" data-choice="10" title="Option 10: Export details to network_data.txt">
+                <span class="menu-num">10</span>
+                <span class="menu-name">Save Details to File</span>
+              </button>
+              <button class="menu-btn" data-choice="11" title="Option 11: Import network configuration from file">
+                <span class="menu-num">11</span>
+                <span class="menu-name">Load Network from File</span>
+              </button>
+              <button class="menu-btn btn-muted" data-choice="0" title="Option 0: Exit / Reset simulation session">
+                <span class="menu-num">0</span>
+                <span class="menu-name">Exit / Reset</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Real Terminal Log Screen -->
+          <div class="terminal-screen" id="terminal-screen" tabindex="0">
+            <pre id="terminal-output" class="terminal-output"></pre>
+            <div class="terminal-input-row" id="terminal-input-row">
+              <span class="prompt-symbol">admin@router-sim:~$</span>
+              <input type="text" id="terminal-cli-input" class="terminal-cli-input" placeholder="Type choice (0-11) or command and press Enter..." autocomplete="off" spellcheck="false">
+              <button id="terminal-submit-btn" class="cli-enter-btn" title="Execute Choice">
+                <i data-lucide="corner-down-left"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Quick Actions Deck & Simulation Presets Bar -->
+      <section class="quick-control-deck card-surface">
+        <div class="deck-col">
+          <div class="deck-title">
+            <i data-lucide="zap"></i>
+            <span>Quick Send Packet</span>
+          </div>
+          <div class="deck-form-row">
+            <div class="input-group">
+              <label for="quick-src">Source Router</label>
+              <select id="quick-src" class="select-styled">
+                <option value="1">1 (R1 - Ingress)</option>
+                <option value="2">2 (R2)</option>
+                <option value="3">3 (R3)</option>
+                <option value="4">4 (R4)</option>
+                <option value="5">5 (R5 - Core)</option>
+                <option value="6">6 (R6)</option>
+                <option value="7">7 (R7)</option>
+                <option value="8">8 (R8 - Egress)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="quick-dst">Destination Router</label>
+              <select id="quick-dst" class="select-styled">
+                <option value="8" selected>8 (R8 - Egress)</option>
+                <option value="7">7 (R7)</option>
+                <option value="6">6 (R6)</option>
+                <option value="5">5 (R5 - Core)</option>
+                <option value="4">4 (R4)</option>
+                <option value="3">3 (R3)</option>
+                <option value="2">2 (R2)</option>
+                <option value="1">1 (R1 - Ingress)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="quick-priority">Priority (&ge; 1)</label>
+              <input type="number" id="quick-priority" class="input-styled" value="1" min="1" max="10">
+            </div>
+
+            <button id="quick-send-btn" class="btn-deck-primary">
+              <i data-lucide="send"></i>
+              <span>Send Packet</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="deck-col">
+          <div class="deck-title">
+            <i data-lucide="sliders"></i>
+            <span>Simulate Failure Scenarios</span>
+          </div>
+          <div class="scenario-buttons-row">
+            <button class="scenario-btn" id="scenario-fail-r5" title="Fail central router R5 to test dynamic bypass">
+              <i data-lucide="slash"></i>
+              <span>Fail Core Router (R5)</span>
+            </button>
+            <button class="scenario-btn" id="scenario-fail-link-2-3" title="Fail link 2-3 to divert traffic">
+              <i data-lucide="unplug"></i>
+              <span>Cut Link (2 - 3)</span>
+            </button>
+            <button class="scenario-btn" id="scenario-fail-bottleneck" title="Sever multiple links to isolate destination">
+              <i data-lucide="shield-alert"></i>
+              <span>Network Partition Stress</span>
+            </button>
+            <button class="scenario-btn repair" id="scenario-repair-all" title="Heal and restore all routers and links">
+              <i data-lucide="check-circle-2"></i>
+              <span>Heal Full Network</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="deck-col stats-summary-deck">
+          <div class="deck-title">
+            <i data-lucide="bar-chart-2"></i>
+            <span>Simulation Telemetry HUD</span>
+          </div>
+          <div class="hud-stats-grid">
+            <div class="hud-item">
+              <span class="hud-label">Total Packets</span>
+              <span class="hud-value" id="hud-total-packets">0</span>
+            </div>
+            <div class="hud-item success">
+              <span class="hud-label">Delivered</span>
+              <span class="hud-value" id="hud-delivered-packets">0</span>
+            </div>
+            <div class="hud-item danger">
+              <span class="hud-label">Lost Packets</span>
+              <span class="hud-value" id="hud-lost-packets">0</span>
+            </div>
+            <div class="hud-item highlight">
+              <span class="hud-label">Delivery Ratio</span>
+              <span class="hud-value" id="hud-delivery-ratio">0.0%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: Algorithm Comparison Lab -->
+    <section class="tab-content" id="tab-algorithms">
+      <div class="card-surface tab-container-padding">
+        <div class="section-title-row">
+          <div>
+            <h2 class="section-title">Routing Algorithm Comparative Analysis</h2>
+            <p class="section-desc">Evaluate path selection, total edge cost, hop counts, and recovery behavior across Breadth-First Search (BFS), Depth-First Search (DFS), Dijkstra's Algorithm, and the Adaptive Routing Strategy with failover.</p>
+          </div>
+          <div class="algo-controls-bar">
+            <div class="algo-select-box">
+              <label>Source:</label>
+              <select id="algo-src" class="select-styled compact">
+                <option value="1">Router 1 (R1)</option>
+                <option value="2">Router 2 (R2)</option>
+                <option value="3">Router 3 (R3)</option>
+                <option value="4">Router 4 (R4)</option>
+                <option value="5">Router 5 (R5)</option>
+                <option value="6">Router 6 (R6)</option>
+                <option value="7">Router 7 (R7)</option>
+                <option value="8">Router 8 (R8)</option>
+              </select>
+            </div>
+            <div class="algo-select-box">
+              <label>Destination:</label>
+              <select id="algo-dst" class="select-styled compact">
+                <option value="8" selected>Router 8 (R8)</option>
+                <option value="7">Router 7 (R7)</option>
+                <option value="6">Router 6 (R6)</option>
+                <option value="5">Router 5 (R5)</option>
+                <option value="4">Router 4 (R4)</option>
+                <option value="3">Router 3 (R3)</option>
+                <option value="2">Router 2 (R2)</option>
+                <option value="1">Router 1 (R1)</option>
+              </select>
+            </div>
+            <button id="btn-run-algo-comparison" class="action-btn-primary">
+              <i data-lucide="play-circle"></i> Run Comparison
+            </button>
+          </div>
+        </div>
+
+        <!-- Algorithm Comparison Cards Grid -->
+        <div class="algo-comparison-grid">
+          <!-- Card: BFS -->
+          <div class="algo-card" id="card-algo-bfs">
+            <div class="algo-card-header">
+              <div class="algo-name-badge">
+                <i data-lucide="list"></i>
+                <h3>Breadth-First Search (BFS)</h3>
+              </div>
+              <span class="algo-category-tag">Unweighted Shortest Path</span>
+            </div>
+            <p class="algo-card-desc">Explores all router neighbors level-by-level using a FIFO queue. Minimizes the total number of hops regardless of transmission costs.</p>
+            <div class="algo-metric-row">
+              <div class="metric-box">
+                <span class="m-label">Selected Route</span>
+                <span class="m-val route-pill" id="bfs-res-route">--</span>
+              </div>
+            </div>
+            <div class="algo-metric-columns">
+              <div class="metric-box">
+                <span class="m-label">Hop Count</span>
+                <span class="m-val" id="bfs-res-hops">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Total Cost</span>
+                <span class="m-val" id="bfs-res-cost">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Complexity</span>
+                <span class="m-val code-font">O(V + E)</span>
+              </div>
+            </div>
+            <button class="preview-route-btn" data-algo="bfs">
+              <i data-lucide="eye"></i> Preview on Topology
+            </button>
+          </div>
+
+          <!-- Card: Dijkstra -->
+          <div class="algo-card featured-algo" id="card-algo-dijkstra">
+            <div class="algo-card-header">
+              <div class="algo-name-badge">
+                <i data-lucide="zap"></i>
+                <h3>Dijkstra's Algorithm</h3>
+              </div>
+              <span class="algo-category-tag optimal">Least Cost Metric</span>
+            </div>
+            <p class="algo-card-desc">Greedy graph relaxation calculating the minimum total link cost. Finds the true optimal path for high-bandwidth/low-latency packets.</p>
+            <div class="algo-metric-row">
+              <div class="metric-box">
+                <span class="m-label">Selected Route</span>
+                <span class="m-val route-pill highlight" id="dijkstra-res-route">--</span>
+              </div>
+            </div>
+            <div class="algo-metric-columns">
+              <div class="metric-box">
+                <span class="m-label">Hop Count</span>
+                <span class="m-val" id="dijkstra-res-hops">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Total Cost</span>
+                <span class="m-val highlight" id="dijkstra-res-cost">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Complexity</span>
+                <span class="m-val code-font">O(V² / E log V)</span>
+              </div>
+            </div>
+            <button class="preview-route-btn" data-algo="dijkstra">
+              <i data-lucide="eye"></i> Preview on Topology
+            </button>
+          </div>
+
+          <!-- Card: Adaptive Strategy -->
+          <div class="algo-card adaptive-algo" id="card-algo-adaptive">
+            <div class="algo-card-header">
+              <div class="algo-name-badge">
+                <i data-lucide="refresh-cw"></i>
+                <h3>Adaptive Routing Strategy</h3>
+              </div>
+              <span class="algo-category-tag adaptive">Resilient / Failover</span>
+            </div>
+            <p class="algo-card-desc">Our core C++ project implementation: dynamically attempts Dijkstra first; if unavailable or severed, smoothly falls back to BFS route recovery.</p>
+            <div class="algo-metric-row">
+              <div class="metric-box">
+                <span class="m-label">Selected Route</span>
+                <span class="m-val route-pill adaptive-highlight" id="adaptive-res-route">--</span>
+              </div>
+            </div>
+            <div class="algo-metric-columns">
+              <div class="metric-box">
+                <span class="m-label">Hop Count</span>
+                <span class="m-val" id="adaptive-res-hops">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Total Cost</span>
+                <span class="m-val" id="adaptive-res-cost">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Active Fallback</span>
+                <span class="m-val text-green" id="adaptive-res-mode">Dijkstra Primary</span>
+              </div>
+            </div>
+            <button class="preview-route-btn" data-algo="adaptive">
+              <i data-lucide="eye"></i> Preview on Topology
+            </button>
+          </div>
+
+          <!-- Card: DFS -->
+          <div class="algo-card" id="card-algo-dfs">
+            <div class="algo-card-header">
+              <div class="algo-name-badge">
+                <i data-lucide="corner-down-right"></i>
+                <h3>Depth-First Search (DFS)</h3>
+              </div>
+              <span class="algo-category-tag">Backtracking Traversal</span>
+            </div>
+            <p class="algo-card-desc">Stack-based graph exploration following deepest branches first. Included in C++ Network model for topological connectivity verification.</p>
+            <div class="algo-metric-row">
+              <div class="metric-box">
+                <span class="m-label">Selected Route</span>
+                <span class="m-val route-pill" id="dfs-res-route">--</span>
+              </div>
+            </div>
+            <div class="algo-metric-columns">
+              <div class="metric-box">
+                <span class="m-label">Hop Count</span>
+                <span class="m-val" id="dfs-res-hops">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Total Cost</span>
+                <span class="m-val" id="dfs-res-cost">--</span>
+              </div>
+              <div class="metric-box">
+                <span class="m-label">Complexity</span>
+                <span class="m-val code-font">O(V + E)</span>
+              </div>
+            </div>
+            <button class="preview-route-btn" data-algo="dfs">
+              <i data-lucide="eye"></i> Preview on Topology
+            </button>
+          </div>
+        </div>
+
+        <!-- Side-by-side Comparative Analysis Table -->
+        <div class="algo-table-wrapper">
+          <h3 class="table-subheading"><i data-lucide="table"></i> Direct Strategy Tradeoff Matrix</h3>
+          <table class="styled-table">
+            <thead>
+              <tr>
+                <th>Strategy Name</th>
+                <th>Optimization Goal</th>
+                <th>Route Path</th>
+                <th>Hop Count</th>
+                <th>Total Cost</th>
+                <th>Failure Resistance</th>
+                <th>Suitability</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-table-body">
+              <tr>
+                <td><strong>Breadth-First Search (BFS)</strong></td>
+                <td>Minimum Hops</td>
+                <td id="tbl-bfs-route" class="code-font">--</td>
+                <td id="tbl-bfs-hops">--</td>
+                <td id="tbl-bfs-cost">--</td>
+                <td><span class="badge badge-warning">Moderate</span></td>
+                <td>Unweighted Networks, Low Hop Latency</td>
+              </tr>
+              <tr>
+                <td><strong>Dijkstra's Algorithm</strong></td>
+                <td>Minimum Link Cost</td>
+                <td id="tbl-dijkstra-route" class="code-font">--</td>
+                <td id="tbl-dijkstra-hops">--</td>
+                <td id="tbl-dijkstra-cost">--</td>
+                <td><span class="badge badge-warning">Moderate</span></td>
+                <td>Weighted Networks, Bandwidth Optimization</td>
+              </tr>
+              <tr class="highlight-row">
+                <td><strong>Adaptive Routing (C++ Engine)</strong></td>
+                <td>Resilience + Cost</td>
+                <td id="tbl-adaptive-route" class="code-font highlight">--</td>
+                <td id="tbl-adaptive-hops">--</td>
+                <td id="tbl-adaptive-cost">--</td>
+                <td><span class="badge badge-success">High (Auto-Fallback)</span></td>
+                <td>Fault-Tolerant Dynamic Systems</td>
+              </tr>
+              <tr>
+                <td><strong>Depth-First Search (DFS)</strong></td>
+                <td>Exploration</td>
+                <td id="tbl-dfs-route" class="code-font">--</td>
+                <td id="tbl-dfs-hops">--</td>
+                <td id="tbl-dfs-cost">--</td>
+                <td><span class="badge badge-danger">Low</span></td>
+                <td>Connectivity Checks, Cycle Detection</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Packet History & Router Queues -->
+    <section class="tab-content" id="tab-history">
+      <div class="card-surface tab-container-padding">
+        <div class="section-title-row">
+          <div>
+            <h2 class="section-title">Packet Transmission History & Router Queues</h2>
+            <p class="section-desc">Auditable log of all generated packets, priority rankings, routed hops, delivery outcomes, and per-router FIFO packet buffers.</p>
+          </div>
+          <button id="btn-export-log" class="action-btn-outline">
+            <i data-lucide="download"></i> Download History
+          </button>
+        </div>
+
+        <!-- Router Queue Status Cards -->
+        <h3 class="table-subheading"><i data-lucide="layers"></i> Router FIFO Packet Queues (`packetQueue`)</h3>
+        <div class="router-queues-grid" id="router-queues-grid"></div>
+
+        <!-- Packet Log Table -->
+        <h3 class="table-subheading mt-6"><i data-lucide="list"></i> Packet Transmission Ledger</h3>
+        <div class="table-scroll-wrapper">
+          <table class="styled-table" id="packets-table">
+            <thead>
+              <tr>
+                <th>Packet ID</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Priority</th>
+                <th>Calculated Route</th>
+                <th>Hop Count</th>
+                <th>Status</th>
+                <th>Delivered Time</th>
+              </tr>
+            </thead>
+            <tbody id="packets-table-body">
+              <tr>
+                <td colspan="8" class="empty-table-msg">No packets transmitted yet. Use Menu Option 2 or Quick Send to begin simulation.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Project Architecture & Progress Report (Pages 2-6) -->
+    <section class="tab-content" id="tab-report">
+      <div class="card-surface tab-container-padding report-content-wrapper">
+        
+        <!-- Header Banner of Report -->
+        <div class="report-header-banner">
+          <div class="report-badge">DSCPP-III-2026-T216 &bull; PHASE-II PROGRESS</div>
+          <h2 class="report-main-title">Adaptive Network Routing and Failure Recovery Simulator</h2>
+          <p class="report-lead">Bridging C++ Object-Oriented Simulation Engine with High-Performance Interactive Browser Frontend</p>
+        </div>
+
+        <!-- Project Abstract & 6 Core Goals (Page 2) -->
+        <div class="report-section">
+          <div class="section-heading">
+            <i data-lucide="target"></i>
+            <h3>1. Project Abstract & Core Research Objectives (Report Page 2)</h3>
+          </div>
+          <p class="report-paragraph">
+            Modern computing systems rely fundamentally on distributed networks for data communication. However, real-world communication links and routing appliances are prone to runtime failures midway or dynamic congestion. Such failures cause packets to be delayed, discarded, or severed from reaching their final destinations.
+          </p>
+          
+          <div class="goals-grid">
+            <div class="goal-card">
+              <span class="goal-num">01</span>
+              <h4>Network Modeling</h4>
+              <p>Object-oriented abstraction of routers, links, packets, buffers, and dynamic graph topologies.</p>
+            </div>
+            <div class="goal-card">
+              <span class="goal-num">02</span>
+              <h4>Algorithmic Routing</h4>
+              <p>Implementation and benchmarking of BFS, DFS, and Dijkstra shortest path pathfinding algorithms.</p>
+            </div>
+            <div class="goal-card">
+              <span class="goal-num">03</span>
+              <h4>Failure Stimulation</h4>
+              <p>Simulating real-world network anomalies via deliberate link severing and router node crashes.</p>
+            </div>
+            <div class="goal-card">
+              <span class="goal-num">04</span>
+              <h4>Failure Recovery</h4>
+              <p>Autonomous anomaly detection and transparent packet rerouting over healthy bypass links.</p>
+            </div>
+            <div class="goal-card">
+              <span class="goal-num">05</span>
+              <h4>Adaptive Recovery</h4>
+              <p>Dynamic failover strategy that attempts optimal Dijkstra routing with intelligent fallback to BFS.</p>
+            </div>
+            <div class="goal-card">
+              <span class="goal-num">06</span>
+              <h4>Evaluation Metrics</h4>
+              <p>Rigorous quantification of packet delivery ratio, loss rate, recovery time, and path cost.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Architecture & OOP Implementation (Page 2 & Page 5) -->
+        <div class="report-section">
+          <div class="section-heading">
+            <i data-lucide="box"></i>
+            <h3>2. Object-Oriented Design & Architecture</h3>
+          </div>
+          <p class="report-paragraph">
+            The project adheres to high-cohesion, low-coupling C++ OOP principles, now executed directly in both terminal and web layers:
+          </p>
+          <div class="oop-cards-grid">
+            <div class="oop-card">
+              <div class="oop-title"><i data-lucide="server"></i> <code>Router</code> Class</div>
+              <p>Encapsulates router ID, descriptive label, active/failed operational state, and a FIFO packet queue (<code>std::queue&lt;Packet*&gt;</code>) handling buffer storage.</p>
+            </div>
+            <div class="oop-card">
+              <div class="oop-title"><i data-lucide="activity"></i> <code>Link</code> Class</div>
+              <p>Models bidirectional communication channels between router pairs, associated with an integer cost/weight and operational state (<code>fail()</code> / <code>repair()</code>).</p>
+            </div>
+            <div class="oop-card">
+              <div class="oop-title"><i data-lucide="package"></i> <code>Packet</code> Class</div>
+              <p>Represents data transmission units containing unique packet IDs, source, destination, priority level, and an auditable route trail (<code>std::vector&lt;int&gt;</code>).</p>
+            </div>
+            <div class="oop-card">
+              <div class="oop-title"><i data-lucide="share-2"></i> <code>Network</code> Class</div>
+              <p>Graph management container maintaining routers list, links list, and adjacency map. Hosts BFS, DFS, and Dijkstra algorithms and connectivity algorithms.</p>
+            </div>
+            <div class="oop-card">
+              <div class="oop-title"><i data-lucide="git-branch"></i> <code>RoutingStrategy</code> Hierarchy</div>
+              <p>Polymorphic abstract base class featuring derived <code>BFSStrategy</code>, <code>DijkstraStrategy</code>, and <code>AdaptiveStrategy</code> (with automatic failover).</p>
+            </div>
+            <div class="oop-card">
+              <div class="oop-title"><i data-lucide="play"></i> <code>Simulation</code> Class</div>
+              <p>Coordinates topology orchestration, packet lifecycle, failures, algorithm comparison, telemetry statistics, and file persistence (<code>saveNetworkToFile</code>).</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tasks Completed & Roadblocks Resolved (Page 3 & Page 4) -->
+        <div class="report-section">
+          <div class="section-heading">
+            <i data-lucide="check-square"></i>
+            <h3>3. Phase-II Milestones & Bridge to Web Frontend</h3>
+          </div>
+          <div class="progress-details-grid">
+            <div class="progress-box">
+              <h4>Tasks Completed (Report Page 3)</h4>
+              <ul class="styled-list">
+                <li><strong>Website Frontend Development</strong>: Interactive presentation and visualization built to bridge the C++ engine.</li>
+                <li><strong>DSA & Routing Logic</strong>: Adjacency map graph representation, BFS queue, DFS stack, and Dijkstra cost calculations.</li>
+                <li><strong>OOP Architecture</strong>: Implementation of <code>Router</code>, <code>Link</code>, <code>Packet</code>, <code>Network</code>, and custom exception classes.</li>
+                <li><strong>Project Coordination</strong>: Verification of interfaces, failure recovery test matrices, and error handling consistency.</li>
+              </ul>
+            </div>
+
+            <div class="progress-box">
+              <h4>Challenges Addressed (Report Page 3-4)</h4>
+              <ul class="styled-list">
+                <li><strong>Coordinating Terminal & Visual Layers</strong>: The original C++ program ran via terminal menu while visualizers were separate. This website combines both simultaneously so every terminal action updates the topology canvas instantly!</li>
+                <li><strong>Fault-Tolerance & Error Handling</strong>: Custom exceptions (<code>RouterNotFoundException</code>, <code>LinkNotFoundException</code>, <code>DestinationUnreachableException</code>) are intercepted and visualized with real-time feedback.</li>
+                <li><strong>Adaptive Strategy Verification</strong>: Live visual confirmation when a path automatically recalculates upon runtime link/router failure.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testing & Validation Status (Page 6) -->
+        <div class="report-section">
+          <div class="section-heading">
+            <i data-lucide="clipboard-check"></i>
+            <h3>4. Testing and Validation Status (Report Page 6)</h3>
+          </div>
+          <div class="table-scroll-wrapper">
+            <table class="styled-table">
+              <thead>
+                <tr>
+                  <th>Test Type</th>
+                  <th>Status</th>
+                  <th>Verification Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>C++ OOP Simulator Compilation</strong></td>
+                  <td><span class="badge badge-success">Pass</span></td>
+                  <td>Compiled cleanly with C++17 without compiler warnings.</td>
+                </tr>
+                <tr>
+                  <td><strong>Basic DSA Demo</strong></td>
+                  <td><span class="badge badge-success">Pass</span></td>
+                  <td>Verified graph adjacency maps, queue operations, and distance calculations.</td>
+                </tr>
+                <tr>
+                  <td><strong>Routing & Failure Scenarios</strong></td>
+                  <td><span class="badge badge-success">Verified in App</span></td>
+                  <td>BFS, DFS, Dijkstra, Adaptive routing, and failure/repair loops tested interactively.</td>
+                </tr>
+                <tr>
+                  <td><strong>Browser Frontend Integration</strong></td>
+                  <td><span class="badge badge-success">Fully Integrated</span></td>
+                  <td>Unified interactive website replicating menu-driven terminal output with live graphical topology representation!</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Interactive Modals for Menu Driven Actions -->
+
+  <!-- Modal: Send Packet Prompt -->
+  <div class="modal-overlay hidden" id="modal-send-packet">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="send"></i>
+          <h3>Option 2: Send Packet (Adaptive Routing)</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Configure packet parameters. The packet will be enqueued in the source router and routed using the Adaptive strategy.</p>
+        <div class="form-row">
+          <label>Source Router:</label>
+          <select id="modal-pkt-source" class="select-styled">
+            <option value="1">1 (R1)</option>
+            <option value="2">2 (R2)</option>
+            <option value="3">3 (R3)</option>
+            <option value="4">4 (R4)</option>
+            <option value="5">5 (R5)</option>
+            <option value="6">6 (R6)</option>
+            <option value="7">7 (R7)</option>
+            <option value="8">8 (R8)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Destination Router:</label>
+          <select id="modal-pkt-dest" class="select-styled">
+            <option value="8" selected>8 (R8)</option>
+            <option value="7">7 (R7)</option>
+            <option value="6">6 (R6)</option>
+            <option value="5">5 (R5)</option>
+            <option value="4">4 (R4)</option>
+            <option value="3">3 (R3)</option>
+            <option value="2">2 (R2)</option>
+            <option value="1">1 (R1)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Priority (Must be &ge; 1):</label>
+          <input type="number" id="modal-pkt-priority" class="input-styled" value="1" min="1" max="10">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-submit" id="btn-modal-submit-packet">
+          <i data-lucide="send"></i> Send Packet
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Compare Algorithms Prompt -->
+  <div class="modal-overlay hidden" id="modal-compare-algo">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="git-merge"></i>
+          <h3>Option 3: Compare Routing Algorithms</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Select endpoints to evaluate paths and hop counts across BFS, Dijkstra, and Adaptive strategies.</p>
+        <div class="form-row">
+          <label>Source Router:</label>
+          <select id="modal-comp-source" class="select-styled">
+            <option value="1">1 (R1)</option>
+            <option value="2">2 (R2)</option>
+            <option value="3">3 (R3)</option>
+            <option value="4">4 (R4)</option>
+            <option value="5">5 (R5)</option>
+            <option value="6">6 (R6)</option>
+            <option value="7">7 (R7)</option>
+            <option value="8">8 (R8)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Destination Router:</label>
+          <select id="modal-comp-dest" class="select-styled">
+            <option value="8" selected>8 (R8)</option>
+            <option value="7">7 (R7)</option>
+            <option value="6">6 (R6)</option>
+            <option value="5">5 (R5)</option>
+            <option value="4">4 (R4)</option>
+            <option value="3">3 (R3)</option>
+            <option value="2">2 (R2)</option>
+            <option value="1">1 (R1)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-submit" id="btn-modal-submit-compare">
+          <i data-lucide="play"></i> Compare
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Fail Link Prompt -->
+  <div class="modal-overlay hidden" id="modal-fail-link">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="unplug" class="text-danger"></i>
+          <h3>Option 4: Fail Link</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Select the two endpoint routers of the link to disconnect.</p>
+        <div class="form-row">
+          <label>First Router:</label>
+          <select id="modal-fl-r1" class="select-styled"></select>
+        </div>
+        <div class="form-row">
+          <label>Second Router:</label>
+          <select id="modal-fl-r2" class="select-styled"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-danger" id="btn-modal-submit-fail-link">
+          <i data-lucide="slash"></i> Disconnect Link
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Repair Link Prompt -->
+  <div class="modal-overlay hidden" id="modal-repair-link">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="link" class="text-success"></i>
+          <h3>Option 5: Repair Link</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Select the failed link to restore.</p>
+        <div class="form-row">
+          <label>Select Failed Link:</label>
+          <select id="modal-rl-select" class="select-styled"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-success" id="btn-modal-submit-repair-link">
+          <i data-lucide="check"></i> Repair Link
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Fail Router Prompt -->
+  <div class="modal-overlay hidden" id="modal-fail-router">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="alert-octagon" class="text-danger"></i>
+          <h3>Option 6: Fail Router</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Select an active router to shut down / crash.</p>
+        <div class="form-row">
+          <label>Router to Fail:</label>
+          <select id="modal-fr-select" class="select-styled"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-danger" id="btn-modal-submit-fail-router">
+          <i data-lucide="power-off"></i> Fail Router
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Repair Router Prompt -->
+  <div class="modal-overlay hidden" id="modal-repair-router">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="check-circle" class="text-success"></i>
+          <h3>Option 7: Repair Router</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Select a failed router to bring back online.</p>
+        <div class="form-row">
+          <label>Router to Repair:</label>
+          <select id="modal-rr-select" class="select-styled"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-success" id="btn-modal-submit-repair-router">
+          <i data-lucide="check"></i> Bring Online
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Save File View & Download -->
+  <div class="modal-overlay hidden" id="modal-save-file">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="file-output"></i>
+          <h3>Option 10: Save Details to File (`network_data.txt`)</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Network state, router operational records, link states, and packet history have been formatted matching C++ file format.</p>
+        <div class="file-preview-box">
+          <pre id="save-file-preview" class="file-pre"></pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel" id="btn-copy-file-content">
+          <i data-lucide="copy"></i> Copy Content
+        </button>
+        <button class="modal-btn-submit" id="btn-download-file">
+          <i data-lucide="download"></i> Download network_data.txt
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Load File Upload -->
+  <div class="modal-overlay hidden" id="modal-load-file">
+    <div class="modal-card modal-wide">
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <i data-lucide="file-input"></i>
+          <h3>Option 11: Load Network from File</h3>
+        </div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">Upload a <code>network_data.txt</code> file generated by the simulator, or paste file contents below:</p>
+        
+        <div class="file-upload-dropzone" id="file-dropzone">
+          <i data-lucide="upload-cloud" class="dropzone-icon"></i>
+          <p>Drag and drop <strong>network_data.txt</strong> here, or <label for="file-input-el" class="browse-link">browse file</label></p>
+          <input type="file" id="file-input-el" accept=".txt" style="display:none;">
+        </div>
+
+        <div class="form-row mt-4">
+          <label>Or paste text contents:</label>
+          <textarea id="load-file-textarea" class="textarea-styled" rows="8" placeholder="ROUTERS... LINKS..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn-cancel">Cancel</button>
+        <button class="modal-btn-submit" id="btn-submit-load-file">
+          <i data-lucide="refresh-cw"></i> Load Network
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Router Node Inspector Popover -->
+  <div id="node-popover" class="node-popover hidden">
+    <div class="popover-header">
+      <span class="popover-title" id="pop-router-name">Router R1</span>
+      <button id="pop-close-btn" class="pop-close">&times;</button>
+    </div>
+    <div class="popover-body">
+      <div class="pop-info-line">
+        <span>Status:</span>
+        <strong id="pop-router-status" class="text-green">ACTIVE</strong>
+      </div>
+      <div class="pop-info-line">
+        <span>Buffer Queue:</span>
+        <span id="pop-router-queue">0 packets</span>
+      </div>
+      <div class="pop-actions">
+        <button id="pop-btn-toggle" class="pop-action-btn danger">Fail Router</button>
+        <button id="pop-btn-src" class="pop-action-btn primary">Set as Source</button>
+        <button id="pop-btn-dst" class="pop-action-btn primary">Set as Destination</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
